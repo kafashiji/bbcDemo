@@ -1,0 +1,524 @@
+<template>
+  <div class="upload-container">
+    <!-- 主要内容区域 -->
+    <div class="content-wrapper">
+      <!-- 预览状态（优先显示）：当存在视频URL时，显示视频预览 -->
+      <div v-if="videoUrl" class="preview-wrapper">
+        <video :src="videoUrl" controls class="video-preview"></video>
+        <button class="delete-button" @click="handleDelete">
+          <TrashIcon class="icon" />
+          删除视频
+        </button>
+      </div>
+
+      <!-- 上传状态：当没有视频URL时，显示上传区域 -->
+      <div 
+        v-else
+        class="upload-area"
+        :class="{ 'drag-over': isDragging }"
+        @dragover.prevent="handleDragOver"
+        @dragleave="handleDragLeave"
+        @drop.prevent="handleDrop"
+        @click="triggerFileInput"
+      >
+        <!-- 隐藏的文件输入框 -->
+        <input
+          ref="fileInput"
+          type="file"
+          accept="video/*"
+          hidden
+          @change="handleFileChange"
+        />
+        <div class="upload-content">
+          <!-- 初始状态：未选择文件时显示 -->
+          <template v-if="!selectedFile">
+            <UploadCloudIcon class="upload-icon" />
+            <div class="instructions">
+              <p class="drag-text">拖放视频文件到这里</p>
+              <p class="click-text">或 <span>点击选择文件</span></p>
+            </div>
+          </template>
+          
+          <!-- 文件预览：选择文件后显示文件名和大小 -->
+          <div v-else class="file-preview">
+            <VideoIcon class="file-icon" />
+            <div class="file-details">
+              <p class="file-name">{{ selectedFile.name }}</p>
+              <p class="file-size">{{ formatFileSize(selectedFile.size) }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 上传进度：上传过程中显示进度条 -->
+    <div v-if="isUploading" class="progress-container">
+      <div 
+        class="progress-bar"
+        :style="{ width: `${uploadProgress}%` }"
+      ></div>
+      <span class="progress-text">{{ uploadProgress }}%</span>
+    </div>
+
+    <!-- 操作按钮：选择文件后，未上传且没有视频URL时显示 -->
+    <div v-if="selectedFile && !isUploading && !videoUrl" class="action-buttons">
+      <button class="confirm-button" @click="startUpload">开始上传</button>
+      <button class="cancel-button" @click="clearSelection">取消</button>
+    </div>
+
+    <!-- 状态提示：显示错误或成功消息 -->
+    <transition name="fade">
+      <div v-if="errorMessage" class="status-message error">{{ errorMessage }}</div>
+    </transition>
+    <transition name="fade">
+      <div v-if="uploadSuccess" class="status-message success">上传成功!</div>
+    </transition>
+  </div>
+</template>
+
+<script setup>
+import { ref, watch } from 'vue'
+import axios from 'axios'
+import { UploadCloudIcon, TrashIcon, VideoIcon } from 'lucide-vue-next'
+
+// 定义props，用于接收父组件传递的参数
+const props = defineProps({
+  maxSize: {
+    type: Number,
+    default: 1024 * 1024 * 500 // 500MB，默认最大文件大小
+  },
+  allowedTypes: {
+    type: Array,
+    default: () => ['video/mp4', 'video/webm', 'video/avi'] // 默认允许的视频格式
+  },
+  existingVideo: {
+    type: String,
+  },
+  chunkSize: {
+    type: Number,
+    default: 5 * 1024 * 1024 // 5MB，默认分片大小
+  },
+  retryCount: {
+    type: Number,
+    default: 3 // 默认重试次数
+  }
+})
+
+// 定义emit，用于向父组件发送事件
+const emit = defineEmits(['video-deleted', 'video-uploaded'])
+const videoUrl = ref(props.existingVideo)
+
+// 响应式状态
+const isDragging = ref(false) // 是否正在拖拽
+const selectedFile = ref(null) // 选择的文件对象
+const isUploading = ref(false) // 是否正在上传
+const uploadProgress = ref(0) // 上传进度
+const errorMessage = ref('') // 错误消息
+const uploadSuccess = ref(false) // 上传是否成功
+const fileInput = ref(null) // 文件输入框的引用
+const uploadId = ref('')
+const chunks = ref([])
+const currentChunk = ref(0)
+const uploadedChunks = ref(0)
+
+watch(() => props.existingVideo, (newVal) => {
+  videoUrl.value = newVal
+})
+
+// 文件处理方法
+const handleFileChange = (e) => {
+  const file = e.target.files[0]
+  validateFile(file)
+}
+
+// 验证文件类型和大小
+const validateFile = (file) => {
+  errorMessage.value = ''
+  
+  if (!file) return
+
+  if (!props.allowedTypes.includes(file.type)) {
+    errorMessage.value = '不支持的文件格式'
+    return false
+  }
+
+  if (file.size > props.maxSize) {
+    errorMessage.value = `文件大小超过限制（最大 ${props.maxSize / 1024 / 1024}MB）`
+    return false
+  }
+
+  selectedFile.value = file
+  return true
+}
+
+// 拖拽处理
+const handleDragOver = () => isDragging.value = true
+const handleDragLeave = () => isDragging.value = false
+
+const handleDrop = (e) => {
+  isDragging.value = false
+  const file = e.dataTransfer.files[0]
+  validateFile(file)
+}
+
+// 触发文件选择框
+const triggerFileInput = () => fileInput.value.click()
+
+// 分片上传逻辑
+const createChunks = () => {
+  const file = selectedFile.value
+  const chunkSize = props.chunkSize
+  const chunks = []
+  let start = 0
+  
+  while (start < file.size) {
+    const end = Math.min(start + chunkSize, file.size)
+    const chunk = file.slice(start, end)
+    chunks.push({
+      index: chunks.length,
+      file: chunk
+    })
+    start = end
+  }
+  
+  return chunks
+}
+
+// 开始上传
+const startUpload = async () => {
+  try {
+    isUploading.value = true
+    errorMessage.value = ''
+    uploadSuccess.value = false
+    
+    // 初始化上传
+    const initResponse = await axios.post('/api/upload/init', {
+      fileName: selectedFile.value.name,
+      totalChunks: Math.ceil(selectedFile.value.size / props.chunkSize)
+    })
+    
+    uploadId.value = initResponse.data.uploadId
+    chunks.value = createChunks()
+    
+    await uploadChunks()
+    await mergeUpload()
+    
+    videoUrl.value = URL.createObjectURL(selectedFile.value)
+    uploadSuccess.value = true
+    emit('video-uploaded', videoUrl.value)
+    
+    setTimeout(() => {
+      uploadSuccess.value = false
+    }, 3000)
+  } catch (error) {
+    errorMessage.value = '上传失败: ' + error.message
+  } finally {
+    isUploading.value = false
+  }
+}
+
+// 上传分片
+const uploadChunks = async () => {
+  for (const [index, chunk] of chunks.value.entries()) {
+    let retries = 0
+    while (retries < props.retryCount) {
+      try {
+        const formData = new FormData()
+        formData.append('file', chunk.file)
+        formData.append('chunkIndex', index)
+        formData.append('uploadId', uploadId.value)
+        formData.append('totalChunks', chunks.value.length)
+
+        await axios.post('/api/upload/chunk', formData, {
+          onUploadProgress: progress => {
+            const chunkProgress = Math.round(
+              (progress.loaded / progress.total) * (100 / chunks.value.length)
+            )
+            uploadProgress.value = Math.min(
+              (index * 100 / chunks.value.length) + chunkProgress,
+              100
+            )
+          }
+        })
+        uploadedChunks.value++
+        break
+      } catch (error) {
+        if (++retries >= props.retryCount) {
+          throw new Error(`分片 ${index} 上传失败: ${error.message}`)
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000 * retries))
+      }
+    }
+  }
+}
+
+// 合并分片
+const mergeUpload = async () => {
+  try {
+    await axios.post('/api/upload/merge', {
+      uploadId: uploadId.value,
+      fileName: selectedFile.value.name
+    })
+  } catch (error) {
+    throw new Error('文件合并失败: ' + error.message)
+  }
+}
+
+// 其他方法
+// 删除视频
+const handleDelete = () => {
+  if (props.existingVideo) {
+    emit('video-deleted')
+  } else {
+    URL.revokeObjectURL(videoUrl.value)
+  }
+  resetState()
+}
+
+// 清除选择
+const clearSelection = () => {
+  selectedFile.value = null
+  uploadProgress.value = 0
+  errorMessage.value = ''
+}
+
+// 重置状态
+const resetState = () => {
+  videoUrl.value = null
+  selectedFile.value = null
+  uploadProgress.value = 0
+  errorMessage.value = ''
+  uploadId.value = ''
+  chunks.value = []
+  currentChunk.value = 0
+  uploadedChunks.value = 0
+  if (fileInput.value) fileInput.value.value = ''
+}
+
+// 格式化文件大小
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+</script>
+
+<style scoped>
+/* 原有样式保持不变 */
+.upload-container {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 20px;
+  height: 200px;
+  margin-left: -20px;
+  margin-top: 0;
+}
+
+.content-wrapper {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.upload-area {
+  height: 200px;
+  border: 2px dashed #cccccc;
+  background-color: #f8f9fa;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.drag-over {
+  border-color: #2196F3;
+  background-color: rgba(33, 150, 243, 0.1);
+}
+
+.upload-content {
+  height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 2rem 2rem 2rem;
+  color: #666;
+}
+
+.upload-icon {
+  width: 64px;
+  height: 64px;
+  color: #a0aec0;
+  margin-bottom: 1.5rem;
+}
+
+.instructions {
+  text-align: center;
+}
+
+.drag-text {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.click-text span {
+  color: #2196F3;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.file-preview {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 1rem;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.file-icon {
+  width: 48px;
+  height: 48px;
+  color: #4a5568;
+}
+
+.file-details {
+  flex: 1;
+}
+
+.file-name {
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.file-size {
+  color: #718096;
+  font-size: 0.9em;
+}
+
+.preview-wrapper {
+  position: relative;
+  height: 200px;
+  background: #000000;
+}
+
+.video-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.delete-button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  padding: 8px 16px;
+  background: rgba(255, 68, 68, 0.9);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.2s;
+}
+
+.delete-button:hover {
+  background: #ff4444;
+}
+
+.delete-button .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.progress-container {
+  margin-top: 1.5rem;
+  height: 24px;
+  background: #edf2f7;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-bar {
+  height: 100%;
+  background: #2196F3;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 0.9em;
+  font-weight: 500;
+}
+
+.action-buttons {
+  margin-top: 1.5rem;
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.confirm-button {
+  background: #2196F3;
+  color: white;
+  padding: 10px 24px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.confirm-button:hover {
+  background: #1976d2;
+}
+
+.cancel-button {
+  background: #e2e8f0;
+  color: #4a5568;
+  padding: 10px 24px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.cancel-button:hover {
+  background: #cbd5e0;
+}
+
+.status-message {
+  margin-top: 1rem;
+  padding: 10px;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.error {
+  background: #fff5f5;
+  color: #c53030;
+}
+
+.success {
+  background: #f0fff4;
+  color: #2f855a;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>
