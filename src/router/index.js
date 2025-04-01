@@ -64,16 +64,6 @@ const routes = [
     name: 'Vsearch',
     component: () => import('../pageview/search/VideoSearch.vue')
   },
-  {
-    path: '/login',
-    name: 'Login',
-    component: () => import('../pageview/login/BBlogin.vue'),
-  },
-  {
-    path: '/register',
-    name: 'Register',
-    component: () => import('../pageview/login/BBregister.vue')
-  }
 ]
 
 const router = createRouter({

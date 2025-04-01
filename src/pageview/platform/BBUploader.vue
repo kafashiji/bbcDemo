@@ -41,7 +41,7 @@
           <div class="form-group">
             <label>视频上传</label>
                 <Uploeder
-                @video-uploaded="handleVideoUploaded"
+                @video-uploaded="handleVideoUpload"
                 @video-deleted="handleVideoDeleted"
                 ></Uploeder>
           </div>

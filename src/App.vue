@@ -34,14 +34,25 @@
     </div>
   </el-menu>
   <router-view/>
+  <LoginDialog ref="loginDialog" />
+  <RegisterV ref="registerV" />
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, provide } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search } from '@element-plus/icons-vue'
+import LoginDialog from './pageview/login/loginV.vue'
+import RegisterV from './pageview/login/registerV.vue'
 
 const searchText = ref('')
+const loginDialog = ref(null) // 保持与模板ref同名
+const registerV = ref(null)   // 接收注册组件实例
+
+provide('dialogRefs', {
+  login: loginDialog,
+  register: registerV
+})
 
 const handleSearch = () => {
   if (searchText.value.trim()) {
@@ -60,12 +71,12 @@ const handleClear = () => {
 const router = useRouter()
 const activeIndex = ref('1')
 
-const checkLogin = () => {
-  return !!localStorage.getItem('token') // 简单本地存储验证
-}
 const handleAvatarClick = () => {
-  if (!checkLogin()) {
-    router.replace('/login')// 未登录跳转登录页
+  if (!localStorage.getItem('user')) {
+    loginDialog.value?.open()// 未登录弹出登录页
+  }
+  else{
+    router.push('/account')
   }
 }
 

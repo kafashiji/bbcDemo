@@ -1,86 +1,69 @@
 <template>
-  <div class="login-container">
-    <div class="login-box">
-      <div class="animated-logo">
-        <img src="https://kafashiji.oss-cn-beijing.aliyuncs.com/BB.ico" alt="">
+  <!-- 登录弹窗容器 -->
+  <div v-if="visible" class="edit-modal" @click.self="close">
+    <div class="login-container">
+      <div class="login-box">
+        <div class="animated-logo">
+          <img src="https://kafashiji.oss-cn-beijing.aliyuncs.com/BB.ico" alt="">
+        </div>
+
+        <el-form :model="form" :rules="rules" ref="loginForm" class="login-form">
+          <el-form-item prop="username">
+            <el-input v-model="form.username" placeholder="账号" prefix-icon="User" size="large" />
+          </el-form-item>
+
+          <el-form-item prop="password">
+            <el-input v-model="form.password" type="password" placeholder="密码" prefix-icon="Lock" size="large"
+              show-password />
+          </el-form-item>
+
+          <div class="login-options">
+            <el-checkbox v-model="form.remember">记住登录</el-checkbox>
+          </div>
+
+          <div>
+            <el-button type="primary" size="large" class="login-btn" @click="handleLogin" :loading="loading">
+              登录
+            </el-button>
+            <el-button type="default" size="large" class="register-btn" @click="handleregister" :loading="loading">
+              注册
+            </el-button>
+          </div>
+
+
+          <div class="third-login">
+            <div class="divider">
+              <span class="line"></span>
+              <span class="text">其他登录方式</span>
+              <span class="line"></span>
+            </div>
+            <div class="icons">
+              <el-icon class="icon wechat">
+                <Wechat />
+              </el-icon>
+              <el-icon class="icon github">
+                <Github />
+              </el-icon>
+              <el-icon class="icon alipay">
+                <Alipay />
+              </el-icon>
+            </div>
+          </div>
+        </el-form>
       </div>
-      
-      <el-form 
-        :model="form" 
-        :rules="rules" 
-        ref="loginForm"
-        class="login-form"
-      >
-        <el-form-item prop="username">
-          <el-input
-            v-model="form.username"
-            placeholder="用户名"
-            prefix-icon="User"
-            size="large"
-          />
-        </el-form-item>
-
-        <el-form-item prop="password">
-          <el-input
-            v-model="form.password"
-            type="password"
-            placeholder="密码"
-            prefix-icon="Lock"
-            size="large"
-            show-password
-          />
-        </el-form-item>
-
-        <div class="login-options">
-          <el-checkbox v-model="form.remember">记住登录</el-checkbox>
-          <el-link type="primary">忘记密码?</el-link>
-        </div>
-
-        <div>
-          <el-button
-          type="primary"
-          size="large"
-          class="login-btn"
-          @click="handleLogin"
-          :loading="loading"
-          >
-          登录
-          </el-button>
-          <el-button
-          type="default"
-          size="large"
-          class="register-btn"
-          @click="handleregister"
-          :loading="loading"
-          >
-          注册
-          </el-button>
-        </div>
-        
-
-        <div class="third-login">
-          <div class="divider">
-            <span class="line"></span>
-            <span class="text">其他登录方式</span>
-            <span class="line"></span>
-          </div>
-          <div class="icons">
-            <el-icon class="icon wechat"><Wechat /></el-icon>
-            <el-icon class="icon github"><Github /></el-icon>
-            <el-icon class="icon alipay"><Alipay /></el-icon>
-          </div>
-        </div>
-      </el-form>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive } from 'vue'
-// import { ElMessage } from 'element-plus'
-import { useRouter } from 'vue-router'
+import HYRequest from '../../service/Request'
+import { inject } from 'vue'
 
-const router = useRouter()
+const { register } = inject('dialogRefs')
+const visible = ref(false)
+const loading = ref(false)
+
 
 const form = reactive({
   username: '',
@@ -90,20 +73,15 @@ const form = reactive({
 
 const rules = reactive({
   username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' }
+    { required: true, message: '请输入账号', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码长度不能小于6位', trigger: 'blur' }
+    { min: 1,message: '密码长度不能小于6位', trigger: 'blur' }
   ]
 })
 
-const loading = ref(false)
 
-const FIXED_ACCOUNT = {
-  username: 'admin',    // 固定用户名
-  password: '123456'    // 固定密码
-}
 
 // 修改登录处理逻辑
 const loginForm = ref(null)  // 获取表单引用
@@ -117,41 +95,61 @@ const handleLogin = async () => {
     ElMessage.warning('请正确填写登录信息')
     return
   }
-  
-  loading.value = true
-  // 模拟网络延迟
-  setTimeout(() => {
-    // 新增：账号密码验证
-    if (form.username === FIXED_ACCOUNT.username && 
-        form.password === FIXED_ACCOUNT.password) {
-      router.push('/')
-    } else {
-      ElMessage.error('账号或密码错误')
+  HYRequest.post({
+  url: '/login',
+  data: {
+    "userName": form.username,
+    "password": form.password
+  }}).then(res => {
+    console.log("res", res)
+    if(!res.success){
+      ElMessage.warning(res.errorMsg)
+    }else{
+      localStorage.setItem('user', JSON.stringify(res.data))
+      ElMessage.success("登录成功")
+      close()
     }
-    loading.value = false
-  }, 1500)
+  })
 }
 const handleregister = () => {
-  loading.value = true
-  // 模拟登录请求
-  setTimeout(() => {
-
-    loading.value = false
-  }, 1500)
-  router.push('/register')
+  register.value?.open()
+  close()
 }
+
+// 控制弹窗显示
+
+
+
+// 暴露打开/关闭方法
+const open = () => visible.value = true
+const close = () => visible.value = false
+
+
+defineExpose({ open, close })
 </script>
 
 <style scoped>
-
+.edit-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(2px);
+  z-index: 98;
+}
 /* 转换为标准CSS */
 .login-container {
   min-height: 100vh;
-  
   display: flex;
   justify-content: center;
   align-items: center;
   padding: 20px;
+  width: 420px;
 }
 
 .login-box {
