@@ -53,7 +53,7 @@ const loading = ref(false)
 
 const form = reactive({
   username: '',
-  email: '',
+  accname: '',
   password: '',
   confirmPassword: ''
 })
@@ -93,8 +93,9 @@ const handlerRegister = () => {
         url: '/bbc_account',
         data: {
           "userName": form.username,
-          "password": form.password,
-          "accName": form.accname
+          "password": form.confirmPassword,
+          "accName": form.accname,
+          "avatarUrl": "https://kafashiji.oss-cn-beijing.aliyuncs.com/BB.ico", // 默认头像URL
         }
       }).then(res => {
         console.log("res", res)

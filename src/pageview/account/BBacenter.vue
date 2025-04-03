@@ -1,8 +1,9 @@
 <!-- src/views/UserCenter.vue -->
 <template>
   <div class="user-center-container">
-    <!-- 侧边导航栏 -->
-    <div class="sidebar">  
+    <!-- 添加加载状态判断 -->
+    <template v-if="!isLoading">
+      <div class="sidebar">  
       <el-menu
         router
         :default-active="$route.path"
@@ -24,44 +25,46 @@
         </el-menu-item>
       </el-menu>
     </div>
-
-    <!-- 主内容区 -->
-    <div class="main-content">
-      <!--
-        * 本组件用于显示当前路由的内容。
-        * 它使用 router-view 来显示与当前路由关联的组件。
-        * 它还使用 transition 来动画化路由之间的更改。
-        * @slot Component - 要显示的组件。
-        * @prop {object} user - 用户对象。
-        * @emits update-user - 当用户对象更新时发出。
-        -->
-      <router-view v-slot="{ Component }">
-        <transition name="fade" mode="out-in">
-          <component :is="Component" :user="user" @update-user="handleUpdateUser"/>
-        </transition>
-      </router-view>
-    </div>
+      <div class="main-content">
+        <router-view v-slot="{ Component }">
+          <component 
+            :is="Component" 
+            :user="userNum" 
+            @update-user="handleUpdateUser"
+            v-if="userNum"
+          />
+        </router-view>
+      </div>
+    </template>
+    <div v-else class="loading-container">Loading...</div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import HYRequest from '../../service/Request' // 或使用你现有的HYRequest
 
+const isLoading = ref(true)
+const userNum = ref(null) // 初始化为 null 而不是空对象
 
-// 用户数据
-const user = ref({
-  username: 'user123',
-  nickname: 'Vue开发者',
-  avatar: 'https://kafashiji.oss-cn-beijing.aliyuncs.com/a29b340b-d02c-499c-abd6-c4dc01cffbb6_base_resized(1).jpg',
-  email: 'vue@example.com',
-  createTime: new Date()
-})
-
-// 更新用户数据
-const handleUpdateUser = (newData) => {
-  user.value = { ...user.value, ...newData }
+const storedData = JSON.parse(localStorage.getItem('user'))//JSON.parse() 方法用于将 JSON 字符串转换为 JavaScript 对象。
+// console.log("storedData",`/bbc_account/${storedData.id}`)
+const fetchUserData = async () => {
+  try {
+    const res = await HYRequest.get({ url: `/bbc_account/${storedData.id}` })
+    if (res.success) {
+      userNum.value = res.data
+    } else {
+      ElMessage.error(res.errorMsg)
+    }
+  } catch (error) {
+    ElMessage.error('网络请求失败')
+  } finally {
+    isLoading.value = false
+  }
 }
 
+onMounted(fetchUserData)
 </script>
 
 <style scoped>

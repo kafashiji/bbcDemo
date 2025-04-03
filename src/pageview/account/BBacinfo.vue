@@ -4,12 +4,12 @@
     <h2 class="page-title">个人信息</h2>
     
     <el-form :model="form" label-width="100px">
-      <el-form-item label="用户名" label-width="100px">
-        <el-input v-model="form.username" disabled style="width: 150px;"/>
+      <el-form-item label="用户ID" label-width="100px">
+        <el-input v-model="form.id" disabled style="width: 150px;"/>
       </el-form-item>
       
       <el-form-item label="昵称">
-        <el-input v-model="form.nickname" style="width: 200px;"/>
+        <el-input v-model="form.accName" style="width: 200px;"/>
       </el-form-item>
       
       <el-form-item label="我的签名">
@@ -29,19 +29,29 @@
 </template>
 
 <script setup>
-import { defineProps, ref, watch } from 'vue'
+import {reactive} from 'vue'
+import HYRequest from '../../service/Request'
 
-const props = defineProps(['user'])
-const emit = defineEmits(['update-user'])
-
-const form = ref({ ...props.user })
-
-watch(props.user, (newVal) => {
-  form.value = { ...newVal }
-})
+const storedData = JSON.parse(localStorage.getItem('user'))
+const form = reactive(storedData)
 
 const handleSubmit = () => {
-  emit('update-user', form.value)
+  console.log(form);
+  
+  HYRequest.put({
+  url: `/bbc_account/${form.id}` ,
+  params: {
+    "signature": form.signature,
+    "AccName": form.accName,
+  }}).then(res => {
+    console.log("res", res)
+    if(!res.success){
+      ElMessage.warning(res.errorMsg)
+    }else{
+      localStorage.setItem('user', JSON.stringify(res.data))
+      ElMessage.success("修改成功")
+    }
+  })
 }
 </script>
 

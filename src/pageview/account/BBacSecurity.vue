@@ -23,22 +23,40 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { reactive } from 'vue'
+import HYRequest from '../../service/Request'
 
-const form = ref({
-  oldPassword: '',
-  newPassword: '',
-  confirmPassword: ''
+const storedData = JSON.parse(localStorage.getItem('user'))
+const form = reactive({
+  'oldPassword': '',
+  'newPassword': '',
+  'confirmPassword': ''
 })
 
+
 const handleSubmit = () => {
-  if (form.value.newPassword !== form.value.confirmPassword) {
+  if (form.newPassword !== form.confirmPassword) {
     ElMessage.error('两次输入密码不一致')
     return
   }
-
-  // 调用修改密码接口
-  ElMessage.success('密码修改成功')
+  else if(storedData.password == form.oldPassword){
+    HYRequest.put({
+      url: `/bbc_account/${storedData.id}` ,
+      params: {
+        "password": form.confirmPassword,
+      }}).then(res => {
+        console.log("res", res)
+        if(!res.success){
+          ElMessage.warning(res.errorMsg)
+        }else{
+          localStorage.setItem('user', JSON.stringify(res.data))
+          ElMessage.success("修改成功")
+        }
+      })
+  }
+  else{
+    ElMessage.warning("旧密码错误")
+  }
 }
 </script>
 

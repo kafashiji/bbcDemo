@@ -107,6 +107,7 @@ const handleLogin = async () => {
     }else{
       localStorage.setItem('user', JSON.stringify(res.data))
       ElMessage.success("登录成功")
+      location.reload();
       close()
     }
   })

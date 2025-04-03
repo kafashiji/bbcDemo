@@ -26,6 +26,7 @@ const routes = [
     path: '/accenter',
     name: 'Accenter',
     component: () =>import('../pageview/account/BBacenter.vue'),
+    redirect: '/accenter/info',
     children: [
       {
         path: 'avatar',

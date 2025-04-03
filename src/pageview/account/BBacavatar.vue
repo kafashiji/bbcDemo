@@ -16,7 +16,7 @@
         :on-change="handleFileChange"  
       >
         <!-- 头像显示区域 -->
-        <el-avatar :size="120" :src="previewAvatar || user.avatar" style="margin-left: 39px;"/>  <!--  显示头像，优先显示预览头像，如果没有则显示用户头像 -->
+        <el-avatar :size="120" :src="previewAvatar" style="margin-left: 39px;"/>  <!--  显示头像，优先显示预览头像，如果没有则显示用户头像 -->
         <template #tip>
           <!-- 提示信息 -->
           <div class="upload-tip" >支持JPG/PNG格式，大小不超过2MB</div>
@@ -41,14 +41,12 @@
 <script setup>
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus';
+import HYRequest from '../../service/Request'
 
-// 定义 props，接收父组件传递的 user 对象
-const props = defineProps(['user'])
-// 定义 emits，用于触发父组件的 update-user 事件
-const emit = defineEmits(['update-user'])
 
+const storedData = JSON.parse(localStorage.getItem('user'))
 // 定义响应式变量 previewAvatar，用于存储预览头像的 URL
-const previewAvatar = ref('')
+const previewAvatar = ref(storedData.avatarUrl)
 // 定义响应式变量 uploading，用于表示是否正在上传
 const uploading = ref(false)
 // 定义变量 uploadFile，用于存储上传的文件
@@ -66,35 +64,49 @@ const handleFileChange = (file) => {
     ElMessage.error('只能上传图片文件')
     return
   }
-  // 如果图片大小超过 2MB，则显示错误消息并返回
   if (!isLt2M) {
     ElMessage.error('图片大小不能超过2MB')
     return
   }
-  // 创建预览头像的 URL
-  previewAvatar.value = URL.createObjectURL(file.raw)
-  // 存储上传的文件
-  uploadFile = file.raw
+    // 如果文件类型和大小都符合要求，则创建预览 URL
+    previewAvatar.value = URL.createObjectURL(file.raw)
+    uploadFile = file.raw
+    console.log("ue",uploadFile)
 }
 
 // 上传头像的方法
-const handleUpload = async () => {
-  // 如果没有选择文件，则返回
-  if (!uploadFile) return
-  
-  // 设置 uploading 为 true，显示加载动画
+const handleUpload =() => {
+  if (!uploadFile) {
+    ElMessage.warning('请先选择头像文件')
+    return
+  }
   uploading.value = true
-  // 模拟上传
-  setTimeout(() => {
-    // 获取新的头像 URL
-    const newAvatar = previewAvatar.value
-    // 触发父组件的 update-user 事件，传递新的头像 URL
-    emit('update-user', { avatar: newAvatar })
-    // 设置 uploading 为 false，隐藏加载动画
-    uploading.value = false
-    // 显示成功消息
-    ElMessage.success('头像更新成功')
-  }, 1000)
+    const formData = new FormData()
+    formData.append('file', uploadFile)
+    console.log(formData)
+    HYRequest.post({
+      url: '/upload',
+      data: formData,
+      headers: {'Content-Type': 'multipart/form-data'}
+    }).then(res => {
+      console.log("res", res)
+      uploading.value = false
+      HYRequest.put({
+      url: `/bbc_account/${storedData.id}` ,
+      params: {
+        "avatarUrl": res,
+      }}).then(res1 => {
+        console.log("res1", res1)
+        if(!res1.success){
+          ElMessage.warning(res.errorMsg)
+        }else{
+          localStorage.setItem('user', JSON.stringify(res1.data))
+          ElMessage.success("修改成功")
+          location.reload();
+        }
+      })
+    })
+    
 }
 </script>
 <style scoped>
