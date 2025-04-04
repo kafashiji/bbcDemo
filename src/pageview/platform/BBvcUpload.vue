@@ -77,6 +77,8 @@
 <script setup>
 import { ref, watch} from 'vue'
 import { UploadCloudIcon, TrashIcon, VideoIcon } from 'lucide-vue-next'
+import HYRequest from '../../service/Request' 
+
 
 // 定义组件的 props
 const props = defineProps({
@@ -137,8 +139,10 @@ const validateFile = (file) => {
     return false // 验证失败
   }
 
-  selectedFile.value = file // 将选择的文件赋值给 selectedFile
+  selectedFile.value = file
+  console.log("视频文件",selectedFile.value) // 将选择的文件赋值给 selectedFile
   return true // 验证成功
+  
 }
 
 // 拖拽处理函数
@@ -162,38 +166,103 @@ const triggerFileInput = () => {
   fileInput.value.click() // 触发文件输入框的点击事件
 }
 
-// 开始上传函数
-const startUpload = async () => {
-  if (!selectedFile.value) return // 如果没有选择文件，则返回
 
-  isUploading.value = true // 设置 isUploading 为 true
-  errorMessage.value = '' // 清空错误消息
-  uploadSuccess.value = false // 设置 uploadSuccess 为 false
+// 封装基于超时的轮询函数
+async function waitForVideoUrl(timeout = 30000, interval = 2000) {
+  const startTime = Date.now();
+  let lastCheckTime = startTime;
 
-  // 模拟上传过程
-  const interval = setInterval(() => {
-    if (uploadProgress.value < 95) {
-      uploadProgress.value += 5 // 增加上传进度
-    } else {
-      clearInterval(interval) // 清除定时器
+  while (true) {
+    const currentTime = Date.now();
+    const elapsed = currentTime - startTime;
+
+    // 优先检查目标值是否存在
+    if (videoUrl.value) {
+      console.log(`视频URL获取成功，耗时 ${elapsed}ms`);
+      return;
     }
-  }, 200)
 
-  // 模拟上传完成
-  setTimeout(() => {
-    clearInterval(interval) // 清除定时器
-    uploadProgress.value = 100 // 设置上传进度为 100
-    isUploading.value = false // 设置 isUploading 为 false
-    uploadSuccess.value = true // 设置 uploadSuccess 为 true
-    videoUrl.value = URL.createObjectURL(selectedFile.value) // 创建视频 URL
+    // 超时终止检查
+    if (elapsed >= timeout) {
+      throw new Error(`视频URL获取超时（${timeout}ms）`);
+    }
+
+    // 动态计算剩余等待时间（避免最后一次等待超过总超时）
+    const remainingTime = timeout - elapsed;
+    const waitTime = Math.min(interval, remainingTime);
     
-    // 3秒后隐藏成功提示
+    console.log(`[${new Date().toISOString()}] 等待下次检查 (剩余 ${remainingTime}ms)`);
+    await new Promise(resolve => setTimeout(resolve, waitTime));
+  }
+}
+
+// 开始上传函数
+const storedData = JSON.parse(localStorage.getItem('user'))
+console.log("本地数据",storedData)
+const startUpload = async () => {
+  try {
+    if (!selectedFile.value) return;
+    
+    // 重置状态
+    isUploading.value = true;
+    errorMessage.value = '';
+    uploadSuccess.value = false;
+
+    // 第一步：上传文件
+    const formData = new FormData();
+    formData.append("file", selectedFile.value);
+    
+    const uploadRes = await HYRequest.post({
+      url: '/uploadVideo',
+      data: formData,
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (progressEvent) => {
+        const percentCompleted = Math.round(
+          (progressEvent.loaded * 100) / progressEvent.total
+        );
+        uploadProgress.value = percentCompleted;
+      }
+    });
+    console.log("上传结果",uploadRes)
+    videoUrl.value = uploadRes; // 设置视频 URL
+    // 获取视频URL
+     // 根据实际响应结构调整
+    await waitForVideoUrl(30000, 2000);
+    console.log("视频URL",videoUrl.value)
+    // 第二步：提交视频信息
+    if (!videoUrl.value) {
+      console.log("视频URL",videoUrl.value)
+      throw new Error('视频上传失败，未获取到视频URL');
+    }else {
+      const metaRes = await HYRequest.post({
+      url: '/video',
+      headers: { 'Content-Type': 'application/json' },
+      data: {
+        "userId":storedData.id,
+        "videoUrl":videoUrl.value,
+        "videoTitle":"",
+        "videoImg":"",
+        "videoTag":null,
+        "videoProfile":null,
+        "viewCount":0,
+        "videoAccName":storedData.accName,
+        "videoAvatar":storedData.avatarUrl,
+      }
+    });
+    }
+    // 更新状态
+    uploadProgress.value = 100;
+    uploadSuccess.value = true;
+    emit('video-uploaded', videoUrl.value);
+  }catch (error) {
+    console.error("未知错误", error);
+// 设置错误消息
+  } finally {
+    isUploading.value = false; 
     setTimeout(() => {
-      uploadSuccess.value = false // 隐藏成功提示
-    }, 3000)
-  }, 2500)
-  videoUrl.value = 'new_uploaded_video_url' // 替换为实际URL
-  emit('video-uploaded', videoUrl.value) // 通知父组件
+    uploadSuccess.value = false; // 重置上传成功状态
+}, 3000);// 上传完成，重置状态
+  }
 }
 
 // 删除视频函数
@@ -203,7 +272,7 @@ const handleDelete = () => {
     // 如果存在服务器视频，通知父组件
     emit('video-deleted')
   } else {
-    URL.revokeObjectURL(videoUrl.value)// 本地视频处理保持不变
+    videoUrl.value=null// 本地视频处理保持不变
   }
   // 重置状态
   videoUrl.value = null // 清空视频 URL
