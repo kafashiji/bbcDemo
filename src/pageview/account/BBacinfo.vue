@@ -39,11 +39,11 @@ const handleSubmit = () => {
   console.log(form);
   
   HYRequest.put({
-  url: `/bbc_account/${form.id}` ,
-  params: {
-    "signature": form.signature,
-    "AccName": form.accName,
-  }}).then(res => {
+    url: `/bbc_account/${form.id}` ,
+    params: {
+      "signature": form.signature,
+      "AccName": form.accName,
+    }}).then(res => {
     console.log("res", res)
     if(!res.success){
       ElMessage.warning(res.errorMsg)

@@ -41,9 +41,9 @@
           <div class="form-group">
             <label>视频上传</label>
                 <Uploeder
-                @video-uploaded="handleVideoUpload"
-                @video-deleted="handleVideoDeleted"
-                ></Uploeder>
+                  @videoURL="handleVideo"
+                >
+                </Uploeder>
           </div>
 
           <!-- 视频简介 -->
@@ -61,10 +61,10 @@
           </div>
 
           <!-- 标签管理 -->
-          <div class="form-group">
+          <!-- <div class="form-group">
             <label>内容标签</label>
             <div class="tags-input">
-              <!-- 循环渲染已添加的标签 -->
+              
               <span
                 v-for="(tag, index) in form.tags"
                 :key="index"
@@ -72,10 +72,10 @@
                 
               >
                 {{ tag }}
-                <!-- 移除标签按钮 -->
+                
                 <button type="button" @click="removeTag(index)">×</button>
               </span>
-              <!-- 新增标签输入框 -->
+              
               <input
                 type="text"
                 v-model="newTag"
@@ -84,7 +84,7 @@
                 style="margin-top: -3px;"
               />
             </div>
-          </div>
+          </div> -->
         </div>
       </div>
 
@@ -93,15 +93,21 @@
         <!-- 重置按钮 -->
         <button type="button" class="cancel-btn" @click="resetForm">重置</button>
         <!-- 提交按钮 -->
-        <button type="submit" class="submit-btn">提交</button>
+        <button type="submit" class="submit-btn">发布</button>
       </div>
     </form>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
-import  Uploeder from '@/pageview/platform/BBvcUpload.vue';
+import { ref, reactive} from 'vue'
+import  Uploeder from '@/pageview/platform/BBvcUpload.vue'
+import HYRequest from '../../service/Request'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+const fee = ref(null)
 
 // 表单数据
 const form = reactive({
@@ -109,7 +115,8 @@ const form = reactive({
   videoFile: null,
   description: '',
   tags: [],
-  thumbnail: ''
+  thumbnail: '',
+  url: '',
 });
 
 // 新增标签
@@ -118,36 +125,31 @@ const newTag = ref('');
 // 处理封面上传
 const handleCoverUpload = (e) => {
   const file = e.target.files[0];
+  console.log(file);
   if (file && file.type.startsWith('image/')) {
+    fee.value = file
+    console.log("fee",fee.value)
     const reader = new FileReader();
     reader.onload = (e) => {
       form.thumbnail = e.target.result;
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(file); 
   }
 };
 
-// 处理视频上传
-const handleVideoUpload = (e) => {
-  const file = e.target.files[0];
-  if (file && file.type.startsWith('video/')) {
-    form.videoFile = file;
-  }
-};
+// //添加标签
+// const addTag = () => {
+//   const tag = newTag.value.trim();
+//   if (tag && !form.tags.includes(tag)) {
+//     form.tags.push(tag);
+//     newTag.value = '';
+//   }
+// };
 
-// 添加标签
-const addTag = () => {
-  const tag = newTag.value.trim();
-  if (tag && !form.tags.includes(tag)) {
-    form.tags.push(tag);
-    newTag.value = '';
-  }
-};
-
-// 移除标签
-const removeTag = (index) => {
-  form.tags.splice(index, 1);
-};
+// // 移除标签
+// const removeTag = (index) => {
+//   form.tags.splice(index, 1);
+// };
 
 // 重置表单
 const resetForm = () => {
@@ -157,22 +159,67 @@ const resetForm = () => {
   form.tags = [];
   form.thumbnail = '';
   newTag.value = '';
+  form.url = 0;
 };
-
+const handleVideo = (videoURL) => {
+  form.url = videoURL;
+  console.log('url:', form.url);
+}
 // 处理表单提交
+const storedData = JSON.parse(localStorage.getItem('user'))
 const handleSubmit = () => {
-  const formData = new FormData();
-  formData.append('title', form.title);
-  formData.append('videoFile', form.videoFile);
-  formData.append('description', form.description);
-  formData.append('tags', form.tags.join(','));
-  formData.append('thumbnail', form.thumbnail);
-
-  // 这里可以添加将 formData 发送到服务器的逻辑
-  console.log('Form Data:', Object.fromEntries(formData.entries()));
-  alert('视频上传成功！');
-  resetForm();
+  if (!form.url) 
+  {
+    console.log("视频URL",form.url)
+    ElMessage.warning("请上传视频")
+  }else{
+    const formData = new FormData();
+    const videoImgUrl = ref(null);
+    formData.append('file', fee.value);
+    HYRequest.post({
+        url: '/upload',
+        data: formData,
+        headers: {'Content-Type': 'multipart/form-data'}
+      }).then(res => {
+        console.log("res", res)
+        if(res== null){
+          ElMessage.warning("上传失败")
+        }
+        else{
+          videoImgUrl.value = res
+          console.log("videoImgUrl", videoImgUrl.value)
+          console.log(form.tags)
+          HYRequest.post({
+          url: "/video" ,
+          headers: { 'Content-Type': 'application/json' },
+          data:   {
+            "videoTitle": form.title,
+            "videoProfile": form.description,
+            "videoImg": videoImgUrl.value,
+            "videoTag": [],
+            "userId":storedData.id,
+            "videoUrl":form.url,
+            "viewCount":0,
+            "videoAccName":storedData.accName,
+            "videoAvatar":storedData.avatarUrl,
+            "videoDelete":1,
+          }}).then(res => {
+            console.log("asdf", res)
+            if(!res.success){
+              ElMessage.warning(res.errorMsg)
+            }else{
+              ElMessage.success("发布成功")
+              router.push({
+                path: '/platform'})
+            }
+          })
+          
+        }
+      }
+    )
+  }
 };
+
 </script>
 
 <style scoped>
@@ -218,12 +265,13 @@ h1 {
 }
 
 .cover-preview {
-  width: 100%;
+  width: 200px;
   height: 160px;
   object-fit: cover;
   border-radius: 8px;
   margin-bottom: 16px;
   background: #f8f9fa;
+  margin-left: -5px;
 }
 
 .upload-label {

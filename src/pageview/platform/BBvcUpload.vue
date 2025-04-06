@@ -97,9 +97,8 @@ const props = defineProps({
 })
 
 // 定义组件的 emits
-const emit = defineEmits(['video-deleted'])
+const emit = defineEmits(['videoID'])
 const videoUrl = ref(props.existingVideo) // 初始化时使用现有视频
-
 // 监听 existingVideo 属性的变化
 watch(() => props.existingVideo, (newVal) => {
   if (newVal) {
@@ -229,39 +228,18 @@ const startUpload = async () => {
      // 根据实际响应结构调整
     await waitForVideoUrl(30000, 2000);
     console.log("视频URL",videoUrl.value)
-    // 第二步：提交视频信息
-    if (!videoUrl.value) {
-      console.log("视频URL",videoUrl.value)
-      throw new Error('视频上传失败，未获取到视频URL');
-    }else {
-      const metaRes = await HYRequest.post({
-      url: '/video',
-      headers: { 'Content-Type': 'application/json' },
-      data: {
-        "userId":storedData.id,
-        "videoUrl":videoUrl.value,
-        "videoTitle":"",
-        "videoImg":"",
-        "videoTag":null,
-        "videoProfile":null,
-        "viewCount":0,
-        "videoAccName":storedData.accName,
-        "videoAvatar":storedData.avatarUrl,
-      }
-    });
-    }
+    emit('videoURL', videoUrl.value) // 触发事件，传递视频URL
     // 更新状态
     uploadProgress.value = 100;
     uploadSuccess.value = true;
-    emit('video-uploaded', videoUrl.value);
   }catch (error) {
     console.error("未知错误", error);
 // 设置错误消息
   } finally {
     isUploading.value = false; 
     setTimeout(() => {
-    uploadSuccess.value = false; // 重置上传成功状态
-}, 3000);// 上传完成，重置状态
+        uploadSuccess.value = false; // 重置上传成功状态
+    }, 3000);// 上传完成，重置状态
   }
 }
 

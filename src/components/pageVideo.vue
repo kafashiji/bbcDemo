@@ -240,6 +240,8 @@ onBeforeUnmount(() => {
   border: none;
   background: rgba(0, 0, 0, 0.5);
   border-radius: 50%;
+  line-height: 2.2em;
+  margin-top: -50px;
 }
 
 :deep(.vjs-play-progress) {
@@ -249,4 +251,5 @@ onBeforeUnmount(() => {
 @keyframes spin {
   to { transform: translate(-50%, -50%) rotate(360deg); }
 }
+
 </style>

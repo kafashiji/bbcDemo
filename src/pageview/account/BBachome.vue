@@ -27,12 +27,18 @@
     </div>
 
     <!-- 视频发布 -->
-      <div v-if="activeTab === '发布'" class="video-upload">
+      <div v-if="activeTab === '发布'" class="favorites">
+        <CCcard :item="item" 
+          v-for="(item) in sortedVideos" 
+          :key="item" class="card" 
+          @click="openVideoDetail(item)" 
+        >
+      </CCcard>/>
       </div>
       <!-- 收藏内容 -->
       <div v-if="activeTab === '收藏'" class="favorites">
         <div>
-            <CCcard :item="item" v-for="(item) in favorites.slice(0,25)" :key="item" class="card"/>
+            <CCcard :item="item" v-for="(item) in favorites" :key="item" class="card"/>
         </div>
       </div>
     </div>
@@ -40,8 +46,10 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { reactive, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import CCcard from '@/components/CCcard.vue'
+import HYRequest from '../../service/Request' 
 
 const router = useRouter()
 const storedData = reactive(JSON.parse(localStorage.getItem('user')))
@@ -49,6 +57,13 @@ const userAvatar = storedData.avatarUrl
 const userAccname = storedData.accName
 
 
+
+const openVideoDetail = (video) => {
+  router.push({
+    name: 'Video', // 确保路由配置中有这个名称
+    params: { id: video.id }, // 可选：通过状态传递完整数据
+  })
+}
 const openAccountInfo=()=>{
   router.push('/accenter')
 } 
@@ -57,25 +72,35 @@ const openAccountInfo=()=>{
 // 选项卡功能
 const tabs = ['发布', '收藏']
 const activeTab = ref('发布')
-
+const filteredVideo1 = ref([])
 
 // 收藏数据
 const favorites = reactive([
   {
-    upId: '旅行家小明',
-    title: '【4K】绝美风景',
-    img: 'https://dummyimage.com/',
-    plays: '12.3万',
-    date: '3天前'
-  },
-  {
-    upId: '旅行家小明',
-    title: '【4K】绝美风景',
-    img: 'https://dummyimage.com/',
-    plays: '12.3万',
-    date: '3天前'
+    upId: '',
+    title: '',
+    img: '',
+    plays: '',
+    date: ''
   }
 ])
+
+// 原有代码保持不变
+const filteredVideo =() => {
+  HYRequest.get({url: `/user/${storedData.id}/videos/search`,}).then(res =>{
+    if(res.success){
+      filteredVideo1.value = res.data // 数据更新会自动触发视图刷新
+    }
+  })
+}
+filteredVideo()
+
+const sortedVideos = computed(() => {
+  return [...filteredVideo1.value].sort((a, b) => {
+      return new Date(b.createdAt) - new Date(a.createdAt);
+  })
+})
+
 </script>
 
 <style scoped>
@@ -84,13 +109,24 @@ const favorites = reactive([
   margin-top: 5px;
   fill: #939696;
 }
-.card{
+.card {
+  /* 原有样式 */
   width: 280px;
   height: 220px;
   float: left;
   margin: 10px 20px 20px 0;
   border-radius: 10px !important;
   position: relative;
+  
+  /* 新增动画相关属性 */
+  transition: transform 0.3s ease, box-shadow 0.3s ease; /* 添加过渡效果 */
+  transform: translateY(0); /* 初始位置 */
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1); /* 初始阴影 */
+}
+
+.card:hover {
+  transform: translateY(-5px); /* 上浮5像素 */
+  box-shadow: 0 8px 16px rgba(0,0,0,0.15); /* 悬浮时加强阴影 */
 }
 h2{
   color: #138dbd;

@@ -69,7 +69,7 @@ const validatePass2 = (rule, value, callback) => {
 const rules = reactive({
   username: [
     { required: true, message: '请输入账户', trigger: 'blur' },
-    { min: 1, max: 12, message: '长度在 1 到 12 个字符', trigger: 'blur' }
+    { min: 1, max: 12, message: '长度在 1 到 12 个字符的数字',pattern: /^\d+$/ ,trigger: 'blur' }
   ],
   accname: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
@@ -84,7 +84,13 @@ const rules = reactive({
   ]
 })
 const registerForm = ref(null)
-
+const resetForm = () => {
+  // 方法1：推荐使用Element表单重置
+  form.username = ''
+  form.accname = ''
+  form.password = ''
+  form.confirmPassword = ''
+}
 
 const handlerRegister = () => {
   registerForm.value.validate((vaild) => {
@@ -104,6 +110,7 @@ const handlerRegister = () => {
         } else {
           ElMessage.success("注册成功")
           login.value?.open()
+          resetForm()
           close()
         }
       })

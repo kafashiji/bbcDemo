@@ -1,16 +1,294 @@
+<script setup>
+import  Uploeder from '@/pageview/platform/BBvcUpload.vue';
+import { ref, reactive, computed } from 'vue';
+import HYRequest from '../../service/Request'
+import router from '@/router';
+import {
+  PlayIcon,
+  Trash2Icon,
+  EditIcon,
+  PackageOpenIcon,
+  ChevronDownIcon,
+  CheckIcon
+} from 'lucide-vue-next';
+
+const searchKeyword = ref('');// 响应式状态：搜索关键词
+const videoToDelete = ref(null);// 响应式状态：待删除的视频对象
+const editingVideo = ref(null);// 响应式状态：正在编辑的视频对象
+const newTag = ref('');// 响应式状态：新的标签
+const sortBy = ref('uploadTime');// 响应式状态：当前排序方式
+const isSortDropdownOpen = ref(false);// 响应式状态：排序下拉菜单是否打开
+const storedData = JSON.parse(localStorage.getItem('user'))// 从本地存储中获取用户数据
+const filteredVideo1 = ref([])// 响应式状态：视频列表
+const editForm = reactive({
+  title: '',
+  videoUrl: '',
+  description: '',
+  tags: [],
+  thumbnail: '',
+  uid: null
+});// 响应式状态：编辑表单数据
+
+
+
+
+// 响应式状态：视频列表
+const sortOptions = [
+  { value: 'uploadTime', label: '最新上传' },
+  { value: 'name', label: '名称排序' },
+  { value: 'views', label: '播放量' },
+];
+
+// 计算属性：当前排序方式的标签
+const currentSortLabel = computed(() => {
+  return sortOptions.find(opt => opt.value === sortBy.value)?.label || '排序方式';
+});
+
+// 计算属性：过滤后的视频列表
+
+const filteredVideo =() => {
+  HYRequest.get({url: `/user/${storedData.id}/videos/search?keyword=${searchKeyword.value}`,}).then(res =>{
+    if(res.success){
+      console.log("关键词",searchKeyword.value)
+      console.log("部分",res.data)
+      filteredVideo1.value = res.data
+      console.log("过滤后的视频列表",filteredVideo1.value);
+    }else{
+      console.log("没有数据")
+    }
+  })
+}
+filteredVideo()
+
+// 计算属性：排序后的视频列表
+const sortedVideos = computed(() => {
+  return [...filteredVideo1.value].sort((a, b) => {
+    switch (sortBy.value) {
+      case 'name': return a.videoTitle.localeCompare(b.videoTitle);
+      case 'views': return b.viewCount - a.viewCount;
+      default: return new Date(b.createdAt) - new Date(a.createdAt);
+    }
+  });
+});
+
+// 方法：处理排序方式改变
+const handleSortChange = (value) => {
+  sortBy.value = value;
+  isSortDropdownOpen.value = false;
+};
+
+// 方法：格式化日期
+const formatDate = (dateString) => {
+  return new Date(dateString).toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+};
+
+
+//----------------------------------------------------------------------------------------------------------------------------------------
+
+// 方法：播放视频
+const playVideo = (video) => {
+  console.log('播放视频:', video.title);
+};
+
+// 方法：打开编辑模态框
+const openEditModal = (video) => {
+  editingVideo.value = video;
+  Object.assign(editForm, {
+    title: video.videoTitle,
+    videoUrl: video.videoUrl,
+    description: video.videoProfile,
+    tags: Array.isArray(video.videoTag) ? [...video.videoTag] : [],
+    thumbnail: video.videoImg,
+    uid: video.id
+  });
+  console.log("编辑视频", editForm.tags);
+};
+
+// 方法：处理封面上传
+const fee = ref(null)
+const handleCoverUpload = (e) => {
+  const file = e.target.files[0];
+  console.log(file);
+  if (file && file.type.startsWith('image/')) {
+    fee.value = file
+    console.log("fee",fee.value)
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      editForm.thumbnail = e.target.result;
+    };
+    reader.readAsDataURL(file); 
+  }
+};
+
+// 方法：处理视频上传成功后的回调
+const handleVideoUploaded = (newUrl) => {
+  if (editingVideo.value) {
+    editingVideo.value.videoUrl = newUrl;
+    editForm.videoUrl = newUrl;
+  }
+};
+
+// 处理视频删除成功后的回调
+const handleVideoDeleted = () => {
+  if (editingVideo.value) {
+    editingVideo.value.videoUrl = '';
+    editForm.videoUrl = '';
+  }
+};
+
+// 方法：添加标签
+const addTag = () => {
+  const tag = newTag.value.trim();
+  if (tag && !editForm.tags.includes(tag)) {
+    editForm.tags.push(tag);
+    newTag.value = '';
+  }
+};
+
+// 方法：移除标签
+const removeTag = (index) => {
+  editForm.tags.splice(index, 1);
+};
+
+// 方法：保存视频更改
+const handleVideo = (videoURL) => {
+  if(videoURL == null){
+    editForm.videoUrl = editingVideo.value.videoUrl;
+    console.log('url:', editForm.videoUrl);
+    return  editForm.videoUrl
+  }else{
+    editForm.videoUrl = videoURL;
+    console.log('url:', editForm.videoUrl);
+    return  editForm.videoUrl
+  }
+}
+
+// 方法：保存视频更改
+const saveVideoChanges = async () => {
+  try {
+    // 参数校验：必须要有视频URL（可以是原有或新上传的）
+    if (!editForm.videoUrl) {
+      ElMessage.warning("请先上传视频文件");
+      return;
+    }
+    const formData = new FormData();
+    formData.append('file', fee.value);
+    if (fee.value) {
+      HYRequest.post({
+      url: '/upload',
+      headers: { 'Content-Type': 'application/json' },
+      data: formData
+    }).then(res => {
+      console.log("res", res)
+      if(res == null){
+        ElMessage.warning("上传失败")
+      }else{
+        console.log("封面图片上传成功", res)
+        console.log("当前视频id",editingVideo.value.id)
+        // 发送更新请求
+        HYRequest.put({
+          url: `/video/${editingVideo.value.id}`,
+          headers: { 'Content-Type': 'application/json' },
+          params: {
+                "videoTitle": editForm.title,
+                "videoProfile": editForm.description,
+                "videoImg": res,
+                "videoUrl":editForm.videoUrl,
+              }
+            }).then(
+              ElMessage.success("更新成功"),
+              filteredVideo()
+            )
+      }
+    });
+    }else{
+      // 发送更新请求
+      HYRequest.put({
+        url: `/video/${editingVideo.value.id}`,
+        headers: { 'Content-Type': 'application/json' },
+        params: {
+              "videoTitle": editForm.title,
+              "videoProfile": editForm.description,
+              "videoImg": editingVideo.value.videoImg,
+              "videoUrl":editForm.videoUrl,
+            }
+          }).then(res => {
+            if(res.success){
+              console.log("更新视频成功", res)
+              ElMessage.success("更新成功")
+              filteredVideo()
+            }
+          }
+
+            
+          )
+    }
+
+    // 处理封面图片上传
+
+  } catch (err) {
+    console.error("保存失败:", err);
+    ElMessage.error("更新失败，请检查网络连接");
+  }
+};
+
+// 方法：关闭编辑模态框
+const closeEditModal = () => {
+  editingVideo.value = null;
+  newTag.value = '';
+};
+
+// 方法：确认删除视频
+const confirmDelete = (video) => {
+  videoToDelete.value = video;
+};
+
+
+// 方法：删除视频
+const deleteVideo = () => {
+  /**
+   * 过滤 videos 数组，移除指定 ID 的视频。
+   * 删除后将 videoToDelete 值设置为 null。
+   */
+  HYRequest.put({
+    url: `/video/${videoToDelete.value.id}`,
+    params: {
+      "videoDelete": 0
+    }
+  }).then(res => {
+    console.log("删除视频", res)
+    if(!res.success){
+      ElMessage.warning("删除失败")
+      setTimeout(() => {
+        router.push('/plaform');
+      }, 3000);
+    }else{
+      ElMessage.success("删除成功")
+      videoToDelete.value = null;
+      filteredVideo()
+    }
+  })
+};
+</script>
+
 <template>
   <div class="video-manager">
     <!-- 头部：视频管理标题、搜索框和排序选择 -->
     <div class="header">
       <!-- 视频管理标题，显示过滤后的视频数量 -->
-      <h1>视频管理 ({{ filteredVideos.length }})</h1>
+      <h1>视频管理 ({{ filteredVideo1.length }})</h1>
       <div class="controls">
         <!-- 搜索框 -->
         <input
-          v-model="searchKeyword"
+          v-model.lazy.trim="searchKeyword"
           type="text"
           placeholder="搜索视频..."
           class="search-input"
+          @keyup.enter="filteredVideo"
         />
 
         <!-- 排序下拉菜单 -->
@@ -55,7 +333,7 @@
     </div>
 
     <!-- 视频列表：如果存在视频则展示视频网格，否则展示空状态 -->
-    <div v-if="filteredVideos.length > 0" class="video-grid">
+    <div v-if="filteredVideo1.length > 0" class="video-grid">
       <!-- 循环渲染视频卡片 -->
       <div
         v-for="video in sortedVideos"
@@ -65,7 +343,7 @@
         <!-- 视频缩略图，点击播放视频 -->
         <div class="thumbnail" @click="playVideo(video)">
           <!-- 视频缩略图图片 -->
-          <img :src="video.thumbnail" :alt="video.title" class="thumbnail-img" />
+          <img :src="video.videoImg" :alt="video.title" class="thumbnail-img" />
           <!-- 鼠标悬停时的遮罩层，显示播放图标 -->
           <div class="hover-overlay">
             <play-icon :size="48" class="play-icon" />
@@ -75,21 +353,21 @@
         <!-- 视频信息 -->
         <div class="video-info">
           <!-- 视频标题 -->
-          <h3 class="video-title">{{ video.title }}</h3>
+          <h3 class="video-title">{{ video.videoTitle }}</h3>
 
           <!-- 视频元信息：播放量和上传日期 -->
           <div class="meta">
             <!-- 播放量 -->
-            <span class="views">{{ video.views }} 次播放</span>
+            <span class="views">{{ video.viewCount }} 次播放</span>
             <!-- 上传日期 -->
-            <span class="date">{{ formatDate(video.uploadTime) }}</span>
+            <span class="date">{{ formatDate(video.createdAt) }}</span>
           </div>
 
           <!-- 视频标签：展示视频相关的标签 -->
-          <div class="tags">
-            <!-- 循环渲染视频标签 -->
-            <span v-for="tag in video.tags" :key="tag" class="tag">{{ tag }}</span>
-          </div>
+          <!-- <div class="tags">
+            
+            <span v-for="tag in video.videoTag" :key="tag" class="tag">{{ tag }}</span>
+          </div> -->
         </div>
 
         <!-- 视频操作：编辑和删除按钮 -->
@@ -155,16 +433,14 @@
                 />
               </div>
 
-              <!-- 视频源 -->
-               <!-- 传递当前编辑视频的 URL，如果存在
-                    // 监听视频上传成功事件，并执行 handleVideoUploaded 方法
-                      // 监听视频删除成功事件，并执行 handleVideoDeleted 方法 -->
+
               <div class="form-group">
                 <label>视频上传</label>
                 <Uploeder
                 :existingVideo="editingVideo?.videoUrl"  
                 @video-deleted="handleVideoDeleted"
                 @video-uploaded="handleVideoUploaded"
+                @videoURL="handleVideo"
                 ></Uploeder>
               </div>
 
@@ -179,24 +455,24 @@
                   style="resize: none !important;width: 90%;"
                 ></textarea>
                 <!-- 字数统计 -->
-                <div class="char-count">{{ editForm.description.length }}/300</div>
+                <div class="char-count">{{ (editForm.description || '').length }}/300</div>
               </div>
 
               <!-- 标签管理 -->
-              <div class="form-group">
+              <!-- <div class="form-group">
                 <label>内容标签</label>
                 <div class="tags-input">
-                  <!-- 循环渲染已添加的标签 -->
+                  
                   <span
                     v-for="(tag, index) in editForm.tags"
                     :key="index"
                     class="tag"
                   >
                     {{ tag }}
-                    <!-- 移除标签按钮 -->
+                    
                     <button type="button" @click="removeTag(index)">×</button>
                   </span>
-                  <!-- 新增标签输入框 -->
+                  
                   <input
                     type="text"
                     v-model="newTag"
@@ -205,7 +481,7 @@
                     style="margin-top: -3px;"
                   />
                 </div>
-              </div>
+              </div> -->
             </div>
           </div>
 
@@ -226,7 +502,7 @@
         <!-- 确认删除标题 -->
         <h3>确认删除视频？</h3>
         <!-- 确认删除内容，显示视频标题 -->
-        <p>《{{ videoToDelete.title }}》将被永久删除</p>
+        <p>《{{ videoToDelete.videoTitle }}》将被永久删除</p>
         <div class="dialog-actions">
           <!-- 取消按钮，关闭对话框 -->
           <button @click="videoToDelete = null" class="cancel-btn">取消</button>
@@ -238,194 +514,7 @@
   </div>
 </template>
 
-<script setup>
-// 引入 Uploeder 组件
-import  Uploeder from '@/pageview/platform/BBvcUpload.vue';
-// 引入 Vue 的响应式 API
-import { ref, reactive, computed } from 'vue';
-// 引入 lucide-vue-next 图标
-import {
-  PlayIcon,
-  Trash2Icon,
-  EditIcon,
-  PackageOpenIcon,
-  ChevronDownIcon,
-  CheckIcon
-} from 'lucide-vue-next';
 
-// 模拟视频数据
-const videos = ref([
-  {
-    id: 1,
-    title: '春日旅行Vlog',
-    videoUrl: 'https://kafashiji.oss-cn-beijing.aliyuncs.com/%E3%80%90P1%E3%80%91%E2%9A%A1soyorin%E7%88%B1%E9%9F%B3%E6%9D%A5%E7%BB%99%E4%BD%A0%E6%B4%97%E8%84%91%E4%BA%86%E2%9A%A1.mp4',
-    description: '记录春天出游的美好时光，包含自然风光和人文景观...',
-    tags: ['旅行', '自然', 'Vlog'],
-    thumbnail: 'https://picsum.photos/300/200?1',
-    views: 2456,
-    uploadTime: '2024-03-15T09:30:00',
-    size: 1024 * 1024 * 45 // 45MB
-  },
-  // 更多模拟数据...
-]);
-
-// 响应式状态：搜索关键词
-const searchKeyword = ref('');
-// 响应式状态：待删除的视频对象
-const videoToDelete = ref(null);
-// 响应式状态：正在编辑的视频对象
-const editingVideo = ref(null);
-// 响应式状态：编辑表单数据
-const editForm = reactive({
-  title: '',
-  videoUrl: '',
-  description: '',
-  tags: [],
-  thumbnail: ''
-});
-// 响应式状态：新的标签
-const newTag = ref('');
-
-// 排序相关
-// 响应式状态：排序方式
-const sortBy = ref('uploadTime');
-// 响应式状态：排序下拉菜单是否打开
-const isSortDropdownOpen = ref(false);
-// 排序选项
-const sortOptions = [
-  { value: 'uploadTime', label: '最新上传' },
-  { value: 'name', label: '名称排序' },
-  { value: 'views', label: '播放量' },
-];
-
-// 处理视频上传成功后的回调
-const handleVideoUploaded = (newUrl) => {
-  if (editingVideo.value) {
-    editingVideo.value.videoUrl = newUrl;
-    editForm.videoUrl = newUrl;
-  }
-};
-
-// 处理视频删除成功后的回调
-const handleVideoDeleted = () => {
-  if (editingVideo.value) {
-    editingVideo.value.videoUrl = '';
-    editForm.videoUrl = '';
-  }
-};
-
-// 计算属性：当前排序方式的标签
-const currentSortLabel = computed(() => {
-  return sortOptions.find(opt => opt.value === sortBy.value)?.label || '排序方式';
-});
-
-// 计算属性：过滤后的视频列表
-const filteredVideos = computed(() => {
-  return videos.value.filter(video =>
-    video.title.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
-    video.tags.some(tag => tag.toLowerCase().includes(searchKeyword.value.toLowerCase()))
-  );
-});
-
-// 计算属性：排序后的视频列表
-const sortedVideos = computed(() => {
-  return [...filteredVideos.value].sort((a, b) => {
-    switch (sortBy.value) {
-      case 'name': return a.title.localeCompare(b.title);
-      case 'views': return b.views - a.views;
-      default: return new Date(b.uploadTime) - new Date(a.uploadTime);
-    }
-  });
-});
-
-// 方法：处理排序方式改变
-const handleSortChange = (value) => {
-  sortBy.value = value;
-  isSortDropdownOpen.value = false;
-};
-
-// 方法：格式化日期
-const formatDate = (dateString) => {
-  return new Date(dateString).toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  });
-};
-
-// 方法：播放视频
-const playVideo = (video) => {
-  console.log('播放视频:', video.title);
-};
-
-// 方法：打开编辑模态框
-const openEditModal = (video) => {
-  editingVideo.value = video;
-  Object.assign(editForm, {
-    title: video.title,
-    videoUrl: video.videoUrl,
-    description: video.description,
-    tags: [...video.tags],
-    thumbnail: video.thumbnail
-  });
-};
-
-// 方法：处理封面上传
-const handleCoverUpload = (e) => {
-  const file = e.target.files[0];
-  if (file && file.type.startsWith('image/')) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      editForm.thumbnail = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  }
-};
-
-// 方法：添加标签
-const addTag = () => {
-  const tag = newTag.value.trim();
-  if (tag && !editForm.tags.includes(tag)) {
-    editForm.tags.push(tag);
-    newTag.value = '';
-  }
-};
-
-// 方法：移除标签
-const removeTag = (index) => {
-  editForm.tags.splice(index, 1);
-};
-
-// 方法：保存视频更改
-const saveVideoChanges = () => {
-  const video = videos.value.find(v => v.id === editingVideo.value.id);
-  if (video) {
-    video.title = editForm.title;
-    video.videoUrl = editForm.videoUrl;
-    video.description = editForm.description;
-    video.tags = [...editForm.tags];
-    video.thumbnail = editForm.thumbnail;
-  }
-  closeEditModal();
-};
-
-// 方法：关闭编辑模态框
-const closeEditModal = () => {
-  editingVideo.value = null;
-  newTag.value = '';
-};
-
-// 方法：确认删除视频
-const confirmDelete = (video) => {
-  videoToDelete.value = video;
-};
-
-// 方法：删除视频
-const deleteVideo = () => {
-  videos.value = videos.value.filter(v => v.id !== videoToDelete.value.id);
-  videoToDelete.value = null;
-};
-</script>
 
 <style scoped>
 
@@ -619,6 +708,7 @@ h1 {
   flex-wrap: wrap;
   gap: 8px;
   margin-left: -5px;
+  height: 28px;
 }
 
 .tag {
@@ -894,6 +984,12 @@ h1 {
 }
 
 .confirm-btn {
+  padding: 10px 28px;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s;
+  border: none;
+  cursor: pointer;
   background: #ff4444;
   color: white;
 }
