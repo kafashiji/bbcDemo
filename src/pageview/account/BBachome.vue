@@ -15,38 +15,42 @@
     </div>
     <div style="width: 1200px;">
     <!-- 选项卡 -->
-    <div class="tabs">
-      <button 
-        v-for="tab in tabs" 
-        :key="tab"
-        :class="{ active: activeTab === tab }"
-        @click="activeTab = tab"
-      >
-        {{ tab }}
-      </button>
-    </div>
-
-    <!-- 视频发布 -->
-      <div v-if="activeTab === '发布'" class="favorites">
-        <CCcard :item="item" 
-          v-for="(item) in sortedVideos" 
-          :key="item" class="card" 
-          @click="openVideoDetail(item)" 
+      <div class="tabs">
+        <button 
+          v-for="tab in tabs" 
+          :key="tab"
+          :class="{ active: activeTab === tab }"
+          @click="activeTab = tab"
         >
-      </CCcard>/>
+          {{ tab }}
+        </button>
       </div>
-      <!-- 收藏内容 -->
-      <div v-if="activeTab === '收藏'" class="favorites">
-        <div>
-            <CCcard :item="item" v-for="(item) in favorites" :key="item" class="card"/>
+      <transition name="tab-slide" mode="out-in">
+        <div v-if="activeTab === '发布'" class="favorites">
+          <CCcard :item="item" 
+            v-for="(item) in sortedVideos" 
+            :key="item" class="card" 
+            @click="openVideoDetail(item)" 
+          >
+          </CCcard>
         </div>
-      </div>
+        <!-- 收藏内容 -->
+        <div v-else class="favorites">
+          <CCcard :item="item" 
+            v-for="(item) in sortedVideos1" 
+            :key="item" class="card"
+            @click="openVideoDetail1(item)"
+          >
+          </CCcard>
+        </div>
+      </transition>
+
     </div>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref, computed } from 'vue'
+import { reactive, ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import CCcard from '@/components/CCcard.vue'
 import HYRequest from '../../service/Request' 
@@ -55,51 +59,66 @@ const router = useRouter()
 const storedData = reactive(JSON.parse(localStorage.getItem('user')))
 const userAvatar = storedData.avatarUrl
 const userAccname = storedData.accName
-
-
-
+const tabs = ['发布', '收藏']
+const activeTab = ref('发布')
+const filteredVideo1 = ref([])
+// 收藏数据
+const favorites = ref([])
+const openAccountInfo=()=>{
+  router.push('/accenter')
+} 
 const openVideoDetail = (video) => {
   router.push({
     name: 'Video', // 确保路由配置中有这个名称
     params: { id: video.id }, // 可选：通过状态传递完整数据
   })
 }
-const openAccountInfo=()=>{
-  router.push('/accenter')
-} 
-// 用户数据
+const openVideoDetail1 = (video) => {
+  router.push({
+    name: 'Video', // 确保路由配置中有这个名称
+    params: { id: video.videoId }, // 可选：通过状态传递完整数据
+  })
+}
 
-// 选项卡功能
-const tabs = ['发布', '收藏']
-const activeTab = ref('发布')
-const filteredVideo1 = ref([])
 
-// 收藏数据
-const favorites = reactive([
-  {
-    upId: '',
-    title: '',
-    img: '',
-    plays: '',
-    date: ''
-  }
-])
 
+const CollectVideo =() =>{
+  HYRequest.get({url: `/collect/${storedData.id}`}).then(res =>{
+    if(res.success){
+      favorites.value = res.data // 数据更新会自动触发视图刷新
+      console.log("收藏1",res)
+    }
+  })
+}
 // 原有代码保持不变
-const filteredVideo =() => {
+const filteredVideo =() =>{
   HYRequest.get({url: `/user/${storedData.id}/videos/search`,}).then(res =>{
     if(res.success){
       filteredVideo1.value = res.data // 数据更新会自动触发视图刷新
     }
   })
 }
-filteredVideo()
+
 
 const sortedVideos = computed(() => {
   return [...filteredVideo1.value].sort((a, b) => {
+
       return new Date(b.createdAt) - new Date(a.createdAt);
   })
 })
+const sortedVideos1 = computed(() => {
+  return [...favorites.value].sort((a, b) => {
+      console.log("收藏",favorites.value)
+      return new Date(b.viewCount) - new Date(a.viewCount);
+  })
+})
+
+onMounted(() => {
+  filteredVideo()
+  CollectVideo()
+})
+
+
 
 </script>
 
@@ -222,5 +241,54 @@ h2{
   width: 200px;
   height: 120px;
   border-radius: 4px;
+}
+.tab-slide-enter-active,
+.tab-slide-leave-active {
+  transition: all 0.3s cubic-bezier(0.55, 0, 0.1, 1);
+  position: absolute;
+}
+
+.tab-slide-enter-from {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+.tab-slide-leave-to {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+.favorites {
+  position: relative;
+  min-height: 300px; /* 保持内容区域高度避免闪烁 */
+}
+
+/* 添加按钮过渡效果 */
+.tabs button {
+  transition: 
+    border-color 0.3s ease,
+    color 0.3s ease,
+    transform 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.tabs button::after {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  width: 0;
+  height: 3px;
+  background: #00aeec;
+  transition: width 0.3s ease;
+}
+
+.tabs button.active::after {
+  width: 100%;
+}
+
+.tabs button:hover {
+  transform: translateY(-2px);
 }
 </style>	

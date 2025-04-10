@@ -129,7 +129,7 @@ const updateSource = () => {
     src: props.src, // 视频 URL
     type: props.mimeType // 视频 MIME 类型
   })
-
+  player.value.load()
   // 保持自动播放状态
   player.value.autoplay(props.autoplay) // 设置自动播放状态
 }
@@ -141,7 +141,8 @@ const retry = () => {
 }
 
 // 响应式更新处理
-watch(() => props.src, updateSource) // 监听 src 属性，更新视频源
+
+watch(() => props.src, updateSource, { immediate: true }) // 监听 src 属性，更新视频源
 watch(() => props.mimeType, updateSource) // 监听 mimeType 属性，更新视频源
 watch(() => props.posterUrl, (newVal) => { // 监听 posterUrl 属性，更新封面
   if (player.value) player.value.poster(newVal) // 设置封面 URL
@@ -163,11 +164,9 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (player.value) {
-    // 清除所有事件监听
-    player.value.off('waiting') // 移除 waiting 事件监听
-    player.value.off('playing') // 移除 playing 事件监听
-    player.value.off('error') // 移除 error 事件监听
-    player.value.dispose() // 销毁播放器实例
+    player.value.off() // 移除所有监听器
+    player.value.dispose()
+    videoRef.value = null // 清除 DOM 引用
   }
 })
 </script>

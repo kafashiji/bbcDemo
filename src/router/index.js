@@ -1,5 +1,4 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-
 const routes = [
   {
     path: '/',
@@ -10,13 +9,7 @@ const routes = [
     path: '/video/:id',
     name: 'Video',
     component: () => import('../pageview/VideoDetail.vue'),
-    props: true
-    // props: route => ({
-    //   id: route.params.id,
-    //   // 可选：将查询参数转为props
-    //   timestamp: Date.now(),
-    //   from: route.query.from 
-    // })
+    props: true,
   },
   {
     path: '/account',
@@ -72,5 +65,4 @@ const router = createRouter({
   history: createWebHashHistory(),
   routes
 })
-
 export default router

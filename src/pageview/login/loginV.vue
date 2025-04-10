@@ -14,7 +14,7 @@
 
           <el-form-item prop="password">
             <el-input v-model="form.password" type="password" placeholder="密码" prefix-icon="Lock" size="large"
-              show-password />
+              show-password @keyup.enter="handleLogin"/>
           </el-form-item>
 
           <div class="login-options">
@@ -22,7 +22,7 @@
           </div>
 
           <div>
-            <el-button type="primary" size="large" class="login-btn" @click="handleLogin" :loading="loading">
+            <el-button type="primary" size="large" class="login-btn" @click="handleLogin" :loading="loading" >
               登录
             </el-button>
             <el-button type="default" size="large" class="register-btn" @click="handleregister" :loading="loading">

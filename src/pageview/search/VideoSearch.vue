@@ -7,15 +7,15 @@
 
     <!-- 搜索结果 -->
     <div class="video-results">
-      <div v-if="videos.length === 0" class="empty-state">
+      <div v-if="videos1.length === 0" class="empty-state">
         <el-empty description="未找到相关视频" />
       </div>
   
     <!-- 修改为flex容器 -->
       <div class="cards-container">
         <CCcard 
-          v-for="item in paginatedVideos" 
-          :key="item.id"  
+          v-for="item in videos1" 
+          :key="item"  
           :item="item"
           class="card hover-card" 
           @click="openVideoDetail(item)"
@@ -23,15 +23,15 @@
       </div>
       <!-- 分页 -->
       <el-pagination
-      v-model:current-page="currentPage"
-      :page-size="pageSize"
-      :total="totalVideos"
-      :pager-count="7" 
-      layout="prev, pager, next, jumper"
-      background
-      hide-on-single-page
-      @current-change="handlePageChange"
-    />
+        v-model:current-page="currentPage"
+        :page-size="pageSize"
+        :total="videos1.length"
+        :pager-count="7" 
+        layout="prev, pager, next, jumper"
+        background
+        hide-on-single-page
+        @current-change="handlePageChange"
+      />
     </div>
   </div>
 </template>
@@ -39,27 +39,27 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-
+import HYRequest from '../../service/Request.js'
 
 // 路由参数处理
 const route = useRoute()
 const router = useRouter()
-const searchQuery = ref(route.query.q || '')
+const searchQuery = computed(() => route.query.q || '');
 const loading = ref(false)
-
+const totalpage = ref({})
 // 分页参数
 const currentPage = ref(1)
-const pageSize = ref(20)
+const pageSize = ref(25)
 
+const videos1 = ref([])
+// const videos = ref([])
+// const totalVideos = ref(0)
 
-const videos = ref([])
-const totalVideos = ref(0)
-
-const paginatedVideos = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value;
-  const end = start + pageSize.value;
-  return videos.value.slice(start, end);
-});
+// const paginatedVideos = computed(() => {
+//   const start = (currentPage.value - 1) * pageSize.value;
+//   const end = start + pageSize.value;
+//   return videos.value.slice(start, end);
+// });
 
 const openVideoDetail = (video) => {
   router.push({
@@ -72,48 +72,45 @@ const openVideoDetail = (video) => {
 // 模拟数据
 
 // 搜索逻辑（需替换为真实API）
-const performSearch = async () => {
-  try {
-    loading.value = true
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 800))
-    // 示例数据
-      videos.value = [
-      { upId:"kcc",id: 1001, title: 'Vue3教程', plays: '12万', date: '2小时前' ,img:'https://kafashiji.oss-cn-beijing.aliyuncs.com/%E5%B1%8F%E5%B9%95%E6%88%AA%E5%9B%BE%202023-10-01%20011020.png'},
-      { upId:"kcc",id: 1002, title: 'TypeScript入门', plays: '8.5万', date: '1天前', img:'https://kafashiji.oss-cn-beijing.aliyuncs.com/%E5%B1%8F%E5%B9%95%E6%88%AA%E5%9B%BE%202023-10-01%20011020.png' },
-      { upId:"kcc",id: 1003, title: 'React Hooks', plays: '5.2万', date: '3天前', img:'https://kafashiji.oss-cn-beijing.aliyuncs.com/DHWL.png' },
-      { upId:"kcc",id: 1004, title: 'Webpack5教程', plays: '3.6万', date: '5天前', img:'https://kafashiji.oss-cn-beijing.aliyuncs.com/%E5%B1%8F%E5%B9%95%E6%88%AA%E5%9B%BE%202023-10-01%20011020.png' },
-      { upId:"kcc",id: 1005, title: 'Node.js实战', plays: '1.2万', date: '1周前', img:'https://kafashiji.oss-cn-beijing.aliyuncs.com/%E5%B1%8F%E5%B9%95%E6%88%AA%E5%9B%BE%202023-10-01%20011020.png' },
-      { upId:"kcc",id: 1006, title: 'Node.js实战', plays: '1.2万', date: '1周前', img:'https://kafashiji.oss-cn-beijing.aliyuncs.com/%E5%B1%8F%E5%B9%95%E6%88%AA%E5%9B%BE%202023-10-01%20011020.png' },
-      { upId:"kcc",id: 1007, title: 'Node.js实战', plays: '1.2万', date: '1周前', img:'https://kafashiji.oss-cn-beijing.aliyuncs.com/%E5%B1%8F%E5%B9%95%E6%88%AA%E5%9B%BE%202023-10-01%20011020.png' },
-      { upId:"kcc",id: 1008, title: 'Node.js实战', plays: '1.2万', date: '1周前', img:'https://kafashiji.oss-cn-beijing.aliyuncs.com/%E5%B1%8F%E5%B9%95%E6%88%AA%E5%9B%BE%202023-10-01%20011020.png' },
-      { upId:"kcc",id: 1009, title: 'Node.js实战', plays: '1.2万', date: '1周前', img:'https://kafashiji.oss-cn-beijing.aliyuncs.com/%E5%B1%8F%E5%B9%95%E6%88%AA%E5%9B%BE%202023-10-01%20011020.png' },
-      { upId:"kcc",id: 1010, title: 'Node.js实战', plays: '1.2万', date: '1周前', img:'https://kafashiji.oss-cn-beijing.aliyuncs.com/%E5%B1%8F%E5%B9%95%E6%88%AA%E5%9B%BE%202023-10-01%20011020.png' },
-      ]
-    totalVideos.value = 48
-  } finally {
-    loading.value = false
-  }
-}
 
+const performSearch1 =() =>{
+  console.log(searchQuery.value)
+  HYRequest.get({
+    url: "/searchVideoTop",
+    params:{
+      keyword:searchQuery.value
+    }
+  }).then(res=>{
+    totalpage.value=res.totalPages
+    videos1.value = res.content
+    console.log("搜索结果",videos1.value.length)
+  })
+}
 // 路由参数监听
-watch(() => route.query.q, (newVal) => {
-  if (newVal !== searchQuery.value) {
-    searchQuery.value = newVal
-    performSearch()
-  }
+watch(() => route.query.q, () => {
+
+    performSearch1()
+
 })
 
 // 初始化搜索
 onMounted(() => {
-  if (searchQuery.value) performSearch()
+  if (searchQuery.value) performSearch1()
 })
 
 // 分页处理
 const handlePageChange = (page) => {
   currentPage.value = page
-  router.replace({
-    query: { ...route.query, page }
+  console.log("1",currentPage.value)
+  HYRequest.get({
+    url: "/searchVideoTop",
+    params:{
+      keyword:searchQuery.value,
+      page:currentPage.value
+    }
+  }).then(res=>{
+    videos1.value = res.content
+    console.log("搜索结果2",videos1.value.length)
   })
 }
 </script>
