@@ -73,11 +73,21 @@ const form = reactive({
 
 const rules = reactive({
   username: [
-    { required: true, message: '请输入账号', trigger: 'blur' }
+    { required: true, message: '请输入账号', trigger: 'blur' },
+    { 
+      min: 1,
+      max: 10,
+      message: '账号长度必须为1-10位',
+      trigger: ['blur', 'change']
+    },
+    {
+      pattern: /^\d{1,10}$/,
+      message: '必须输入1-10位纯数字' // 合并提示信息
+    }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 1,message: '密码长度不能小于6位', trigger: 'blur' }
+    { min: 6,message: '密码长度不能小于6位', trigger: 'blur' }
   ]
 })
 

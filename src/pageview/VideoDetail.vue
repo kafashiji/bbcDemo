@@ -14,7 +14,7 @@
 
           <div class="triplet" style="display: flex; justify-content: start; padding: 20px 0;height: 30px; box-shadow: 0px 1px 3px  rgba(1, 1, 1, 0.1);">
 
-            <div class="Like" style="height: 40px;width: 180px; display: flex;align-items: center;" :class="{ 'active': myLike.videoLike === 1 }"  @click="addLike" >
+            <div  class="Like" style="height: 40px;width: 180px; display: flex;align-items: center;" :class="{ 'active': myLike.videoLike === 1 }"  @click="addLike" >
               <img src="../assets/Liked.png" alt=""
                 style="width: 30px; height: 30px; margin-left: 30px;margin-right: 5px;" />
               <div class="likeCount" style="height: 20px;font-size: 19px;color:  #ACAAAA;"> 
@@ -22,7 +22,7 @@
               </div>
             </div>
 
-            <div class="Collect" style="height: 40px; display: flex;align-items: center;margin-left: 20px;" :class="{ 'active': myCollect.collect === 1 }" @click="addCollect">
+            <div  class="Collect" style="height: 40px; display: flex;align-items: center;margin-left: 20px;" :class="{ 'active': myCollect.collect === 1 }" @click="addCollect">
 
               <img src="../assets/Collect​.svg" alt=""
                 style="width: 30px; height: 30px; margin-left: 30px;margin-right: 5px;" />
@@ -45,7 +45,7 @@
             {{ filtedVideo.videoProfile }}
           </div>
 
-          <div v-if="showToggle" @click="hihtlll = !hihtlll" style="color: #3891cc; margin-top: 3px;">
+          <div v-show="showToggle" @click="hihtlll = !hihtlll" style="color: #3891cc; margin-top: 3px;">
             {{ hihtlll ? '收起' : '展开' }}
           </div>
         </div>
@@ -94,7 +94,7 @@
         <div style="margin-top: 40px;">
 
           <CCcard :item="item" v-for="(item) in filtedVideo1" :key="item" class="card hover-card"
-            @click="openVideoDetail(item)">
+            @click="openVideoDetail(item)" >
           </CCcard>
 
         </div>
@@ -107,14 +107,17 @@
 
 
 <script setup>
-import { ref, onMounted, watch ,computed ,onBeforeUnmount} from 'vue'
+import { ref, onMounted, watch ,computed ,onBeforeUnmount,shallowRef} from 'vue'
 import CCcard from '@/components/CCcard.vue'
 import VideoPlayer from '../components/pageVideo.vue'
 import { useRouter } from 'vue-router'
 import HYRequest from '../service/Request'
 
 
-const storedData = JSON.parse(localStorage.getItem('user'))
+// 使用shallowRef替代ref减少深度监听（适用于复杂对象）
+const filtedVideo = shallowRef({});
+// 使用readonly包裹不需要修改的响应式数据
+const storedData = ref(JSON.parse(localStorage.getItem('user')));
 const router = useRouter()
 const contentEl = ref();      // 获取DOM元素    // 展开状态
 const showToggle = ref(false);
@@ -127,8 +130,6 @@ const publishtext = ref({
 const republishtext = ref({
   description: ''
 })
-const filtedVideo = ref({// 初始空对象避免undefined
-});
 const myCollect =ref({})
 const myLike =ref({})
 const comment = ref([
@@ -158,29 +159,28 @@ const filtedVideo1 = ref([
 ]);//up的视频
 const collectVideo = ref([])
 const likeVideo = ref([])
+
+
 const publish = () => {
   const content = publishtext.value.description;
-  
+  console.log("fas",content)
   // 空白评论验证
   if (content.trim() === '') {
     ElMessage.warning('评论内容不能为空!');
     publishtext.value.description=republishtext.value.description
     return;
   }
-  
-  // 首字符空格验证
   if (content.length > 0 && content[0] === ' ') {
     ElMessage.warning('评论内容不能为空!');
     return;
   }
-
   HYRequest.post({
     url:"/comment",
     data:{
-      "userId": storedData.id,
-      "comment": publishtext.value.description,
-      "userName": storedData.accName,
-      "avatar": storedData.avatarUrl,
+      "userId": storedData.value.id,
+      "comment": content,
+      "userName": storedData.value.accName,
+      "avatar": storedData.value.avatarUrl,
       "videoId": videoId.value
     }
   }).then(res => {
@@ -194,7 +194,7 @@ const publish = () => {
           })// 数据更新会自动触发视图刷新
 }
 
-function debounce(func, delay = 200) {
+function debounce(func, delay = 300) {
   let timeoutId;
   return function(...args) {
     clearTimeout(timeoutId);
@@ -207,32 +207,42 @@ const addLike =() =>{
   debouncedSubmitLike()
 }
 const submitLike =() =>{
+  
   HYRequest.put({
     url: '/updateLike',
     data:{
-      "userId": storedData.id,
+      "userId": storedData.value.id,
       "videoId": videoId.value,
     }
   }).then(res =>{
-        if(res.data.videoLike == 1){
-          console.log(res.data.collect)
+    console.log(res.data[0])
+        if(res.data[0].videoLike == 1){
+          console.log(res.data)
           ElMessage.success("点赞")
-          myLike.value.videoLike = res.data.videoLike;       // 重新获取视频详情数据
-          fatchLike(); 
+          myLike.value.videoLike = res.data[0].videoLike;       // 重新获取视频详情数据
+          likeVideo.value=res.data[1]
+          console.log(likeVideo.value.length) 
         }
-        if(res.data.videoLike == 0){
+        if(res.data[0].videoLike == 0){
           ElMessage.success("点赞已取消")
-          myLike.value.videoLike = res.data.videoLike;       // 重新获取视频详情数据
-          fatchLike(); 
+          myLike.value.videoLike = res.data[0].videoLike;       // 重新获取视频详情数据
+          likeVideo.value=res.data[1]
+          console.log(likeVideo.value.length)
         }
       })
 }
 const debouncedSubmitLike = debounce(submitLike);
+
 const addCollect =() =>{
+  debouncedSubmitCollect()
+}
+const submitCollect =() =>{
+  const storedData = ref(JSON.parse(localStorage.getItem('user')))
+  console.log(storedData.value.id)
   HYRequest.put({
         url: '/updateCollect',
         data: {
-          "userId": storedData.id,
+          "userId": storedData.value.id,
           "videoId": videoId.value,
           "createdAt": filtedVideo.value.createdAt,
           "videoTitle": filtedVideo.value.videoTitle,
@@ -246,22 +256,24 @@ const addCollect =() =>{
           "collect": 0 // 默认头像URL
         }
       }).then(res =>{
-        if(res.data.collect == 1){
-          console.log(res.data.collect)
+        console.log("收藏状态",res)
+        if(res.data[0].collect == 1){
+          console.log("收藏状态",res.data[0])
           ElMessage.success("已收藏")
-          filtedVideo.value = res.data
-          myCollect.value.collect = res.data.collect;       // 重新获取视频详情数据
-          fatchCollect(); 
-
+          // filtedVideo.value = res.data
+          myCollect.value.collect = res.data[0].collect;
+          collectVideo.value = res.data[1]       // 重新获取视频详情数据
+          // fatchCollect(); 
         }
-        if(res.data.collect == 0){
+        if(res.data[0].collect == 0){
           ElMessage.success("收藏取消")
-          myCollect.value.collect = res.data.collect;;       // 重新获取视频详情数据
-          fatchCollect(); 
+          myCollect.value.collect = res.data[0].collect;
+          collectVideo.value = res.data[1]       // 重新获取视频详情数据
+          // fatchCollect(); 
         }
       })
 }
-
+const debouncedSubmitCollect = debounce(submitCollect);
 // 检测内容高度
 const checkContentHeight = () => {
   if (text.value.length) {
@@ -336,11 +348,9 @@ const HisId = () => {
       filtedVideo.value = res.data
       text.value = filtedVideo.value.videoProfile
       checkContentHeight()
-      fatchComments()// 数据更新会自动触发视图刷新
-      fatchCollect()
-      fatchLike()
-      nowVideoCollect()
-      nowVideoLike()
+      fatchasidevideo()
+      // nowVideoCollect()
+      // nowVideoLike()
     } else {
       console.log('获取数据失败')
     }
@@ -361,9 +371,7 @@ const addViewCount = () => {
 }
 
 const fatchComments =() => {
-  HYRequest.get({ url: `/user/${filtedVideo.value.userId}/videos/search`, }).then(res => {
-        if (res.success) {
-          filtedVideo1.value = res.data
+
 
           HYRequest.get({ url: `/comment/${videoId.value}`, }).then(res => {
             if (res.success) {
@@ -371,7 +379,14 @@ const fatchComments =() => {
               console.log("评论", comment.value)
             }
           }) // 数据更新会自动触发视图刷新
-        } else {
+
+}
+
+const fatchasidevideo =()=>{
+    HYRequest.get({ url: `/user/${filtedVideo.value.userId}/videos/search`, }).then(res => {
+        if (res.success) {
+          filtedVideo1.value = res.data
+          } else {
           console.log('获取数据失败')
         }
       })
@@ -390,35 +405,39 @@ const fatchLike=()=>{
 }
 
 const nowVideoLike =() =>{
+  const storedData = ref(JSON.parse(localStorage.getItem('user')));
   HYRequest.get({
     url:'/LikeVideo',
     params: {  // 使用params传递
-      userId: storedData.id,
+      userId: storedData.value.id,
       videoId: videoId.value 
     }
   }).then(res=>{
-    myLike.value=res.data
+    myLike.value.videoLike=res.data.videoLike
     console.log("cscsc",myLike.value.videoLike)
   })
 }
 const nowVideoCollect =() =>{
+  const storedData = ref(JSON.parse(localStorage.getItem('user')));
   HYRequest.get({
     url:'/collectVideo',
     params: {  // 使用params传递
-      userId: storedData.id,
+      userId: storedData.value.id,
       videoId: videoId.value 
     }
   }).then(res=>{
-    myCollect.value=res.data
+    myCollect.value.collect=res.data.collect
   })
 }
-onMounted(() => {
-  addViewCount()
-})
+
 watch(() => router.currentRoute.value.params.id, (newId) => {
   videoId.value = Number(newId)
-  addViewCount()
-  HisId() // 路由变化时触发观看次数增加
+  fatchLike()
+  nowVideoCollect()
+  nowVideoLike()
+  fatchComments()
+  fatchCollect()
+  addViewCount() // 路由变化时触发观看次数增加
 })
 const sortedVideos = computed(() => {
   return [...comment.value].sort((a, b) => {
@@ -429,6 +448,15 @@ const sortedVideos = computed(() => {
 onBeforeUnmount(() => {
   filtedVideo.value = null;
 });
+
+onMounted(() => {
+  fatchLike()
+  nowVideoCollect()
+  nowVideoLike()
+  fatchComments()// 数据更新会自动触发视图刷新
+  fatchCollect()
+  addViewCount()
+})
 </script>
 
 <style scoped>

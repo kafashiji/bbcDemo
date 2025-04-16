@@ -4,6 +4,8 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import CCcard from '@/components/CCcard.vue'
 import HYRequest from '../service/Request'
+import LoginDialog from './login/loginV.vue'
+import RegisterV from './login/registerV.vue'
 
 // 模拟视频数据（实际应从接口获取）
 const router = useRouter()
@@ -15,13 +17,19 @@ const videos1 = ref([
 
   // ...更多视频数据
 ])
+const loginDialog = ref(null)
+const registerV = ref(null)
 const openVideoDetail = (video) => {
-  router.push({
+  if (!localStorage.getItem('user')) {
+    loginDialog.value?.open()
+    return
+  } else {
+    router.push({
     name: 'Video', // 使用命名路由
     params: { id: video.id },
     query: { from: 'home' }, // 可选查询参数
-    
   })
+  }
 }
 onMounted(() => {
   indexVideo()
@@ -60,12 +68,12 @@ const indexVideo = () =>{
 </script>
 <template>
 <div class="hander"></div>
-    <div style="width: 1400px;margin: 10px auto; overflow: hidden;">
+    <div style="width: 90%;margin: 10px auto; overflow: hidden; margin-left: 7%;">
                 <!-- 轮播图 -->
       <div style="display: flex; width: 100%; justify-content: start;margin-bottom: 20px;">
         <!-- 轮播图和视频排版-->
         <div style="margin-right: 20px;">
-          <el-carousel height="462px" style="width: 724px;" v-if="carouselItems.length > 0">
+          <el-carousel height="462px" style="width: 718px;" v-if="carouselItems.length > 0">
             <el-carousel-item v-for="(item, index) in carouselItems" :key="index">
               <img :src="item.url" class="carousel-image" alt="轮播图" @click="handleCarouselClick(item)" />
             </el-carousel-item>
@@ -81,7 +89,7 @@ const indexVideo = () =>{
         </div>
         <!-- 视频列表 -->
         <div>
-          <CCcard :item="item" v-for="(item) in videos1.slice(0,4)" :key="item" class="card1 hover-card"  @click="openVideoDetail(item)" ></CCcard>
+          <CCcard :item="item" v-for="(item) in videos1.slice(0,6)" :key="item" class="card1 hover-card"  @click="openVideoDetail(item)" ></CCcard>
         </div>
       </div>
       <!-- 视频列表2 -->
@@ -89,6 +97,8 @@ const indexVideo = () =>{
         <CCcard :item="item" v-for="(item) in videos.slice(0,25)" :key="item" class="card hover-card"  @click="openVideoDetail(item)" ></CCcard>
       </div>
     </div>
+    <LoginDialog ref="loginDialog" />
+    <RegisterV ref="registerV" />
 </template>
 <style scoped>
 .hander{
@@ -142,7 +152,7 @@ const indexVideo = () =>{
   margin-left: -8px;
 }
 .card{
-  width: 250px;
+  width: 310px;
   height: 220px;
   float: left;
   margin: 0 20px 20px 0;

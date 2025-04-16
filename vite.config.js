@@ -30,7 +30,7 @@ export default defineConfig({
     port: 5173,      // 默认端口，可以自定义
     proxy: {
       '/api': {
-        target: 'http://localhost:8080', // 后端地址
+        target: 'http://8.138.223.37:7777', // 后端地址
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },

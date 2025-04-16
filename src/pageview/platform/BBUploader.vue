@@ -93,7 +93,7 @@
         <!-- 重置按钮 -->
         <button type="button" class="cancel-btn" @click="resetForm">重置</button>
         <!-- 提交按钮 -->
-        <button type="submit" class="submit-btn">发布</button>
+        <button type="submit" class="submit-btn" >发布</button>
       </div>
     </form>
   </div>

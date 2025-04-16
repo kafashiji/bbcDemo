@@ -12,6 +12,7 @@ class HYRequest{
         }
       }
     )
+    
   }
 
   request(config){
@@ -41,4 +42,6 @@ class HYRequest{
   }
 }
 
+// export default new HYRequest("http://8.138.223.37:7777")
+// export default new HYRequest("http://localhost:8080")
 export default new HYRequest("/api")

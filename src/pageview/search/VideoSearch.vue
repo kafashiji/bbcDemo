@@ -34,14 +34,20 @@
       />
     </div>
   </div>
+  <LoginDialog ref="loginDialog" />
+  <RegisterV ref="registerV" />
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import HYRequest from '../../service/Request.js'
+import LoginDialog from '../login/loginV.vue'
+import RegisterV from '../login/registerV.vue'
 
 // 路由参数处理
+const loginDialog = ref(null)
+const registerV = ref(null)
 const route = useRoute()
 const router = useRouter()
 const searchQuery = computed(() => route.query.q || '');
@@ -52,26 +58,21 @@ const currentPage = ref(1)
 const pageSize = ref(25)
 
 const videos1 = ref([])
-// const videos = ref([])
-// const totalVideos = ref(0)
 
-// const paginatedVideos = computed(() => {
-//   const start = (currentPage.value - 1) * pageSize.value;
-//   const end = start + pageSize.value;
-//   return videos.value.slice(start, end);
-// });
 
 const openVideoDetail = (video) => {
-  router.push({
+  if (!localStorage.getItem('user')) {
+    loginDialog.value?.open()
+    return
+  } else {
+    router.push({
     name: 'Video', // 使用命名路由
     params: { id: video.id },
     query: { from: 'home' }, // 可选查询参数
-    // state: { videoData: video } // 通过state传递完整数据（可选）
   })
+  }
 }
-// 模拟数据
 
-// 搜索逻辑（需替换为真实API）
 
 const performSearch1 =() =>{
   console.log(searchQuery.value)

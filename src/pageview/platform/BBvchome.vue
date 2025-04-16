@@ -29,7 +29,13 @@ const editForm = reactive({
   uid: null
 });// 响应式状态：编辑表单数据
 
-
+const openVideoDetail =(video)=>{
+  router.push({
+    name: 'Video', // 使用命名路由
+    params: { id: video.id },
+    query: { from: 'home' }, // 可选查询参数
+  })
+}
 
 
 // 响应式状态：视频列表
@@ -339,6 +345,7 @@ const deleteVideo = () => {
         v-for="video in sortedVideos"
         :key="video.id"
         class="video-card"
+        @click="openVideoDetail(video)"
       >
         <!-- 视频缩略图，点击播放视频 -->
         <div class="thumbnail" @click="playVideo(video)">
